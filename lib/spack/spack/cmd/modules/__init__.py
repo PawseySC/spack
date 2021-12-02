@@ -309,6 +309,7 @@ def refresh(module_type, specs, args):
                 for x in writer_list:
                     message += 'spec: {0}\n'.format(x.spec.format())
         tty.error(message)
+        tty.error("Consider updating naming convention to include hash")
         tty.error('Operation aborted')
         raise SystemExit(1)
 

@@ -68,9 +68,11 @@ def configuration(module_set_name):
 _valid_tokens = (
     'name',
     'version',
+    'variants',
     'compiler',
     'compiler.name',
     'compiler.version',
+    'compiler_flags',
     'architecture',
     # tokens from old-style format strings
     'package',
@@ -605,8 +607,9 @@ class BaseFileLayout(object):
             projection = self.conf.default_projections['all']
 
         name = self.spec.format(projection)
-        # Not everybody is working on linux...
-        parts = name.split('/')
+        # Not everybody is working on linux... so split on /
+        # Remove " " from the module name 
+        parts = name.replace(" ","_").replace('"',"_").split('/')
         name = os.path.join(*parts)
         # Add optional suffixes based on constraints
         path_elements = [name] + self.conf.suffixes
@@ -846,6 +849,9 @@ class BaseModuleFileWriter(object):
             msg = '\tNOT WRITING: {0} [BLACKLISTED]'
             tty.debug(msg.format(self.spec.cshort_spec))
             return
+
+        # store the installation time of the package 
+        self.spec.installation_time = datetime.datetime.fromtimestamp(os.path.getmtime(self.spec.prefix)).strftime('%c')
 
         # Print a warning in case I am accidentally overwriting
         # a module file that is already there (name clash)
