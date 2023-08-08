@@ -41,8 +41,8 @@ class Namd(MakefilePackage, CudaPackage):
     variant(
         "fftw",
         default="3",
-        values=("none", "2", "3", "mkl", "amdfftw"),
-        description="Enable the use of FFTW/FFTW3/MKL FFT/AMDFFTW",
+        values=("none", "2", "3", "mkl", "amdfftw", "cray"),
+        description="Enable the use of FFTW/FFTW3/MKL FFT/AMDFFTW/CRAY FFTW",
     )
 
     variant(
@@ -53,6 +53,7 @@ class Namd(MakefilePackage, CudaPackage):
     )
 
     variant("avxtiles", when="target=x86_64_v4:", default=False, description="Enable avxtiles")
+    variant("plumed", default=False, description="Enable PLUMED support")
 
     # init_tcl_pointers() declaration and implementation are inconsistent
     # "src/colvarproxy_namd.C", line 482: error: inherited member is not
@@ -61,14 +62,15 @@ class Namd(MakefilePackage, CudaPackage):
     patch("inherited-member-2.14.patch", when="@2.14")
     # Handle change in python-config for python@3.8:
     patch("namd-python38.patch", when="interface=python ^python@3.8:")
-
+    patch("charmpp-shasta-2.14.patch", when="@2.14")
+    patch("lpython-2.14.patch.2")
     depends_on("charmpp@6.10.1:6", when="@2.14:")
     depends_on("charmpp@6.8.2", when="@2.13")
     depends_on("charmpp@6.7.1", when="@2.12")
 
     depends_on("fftw@:2", when="fftw=2")
     depends_on("fftw@3:", when="fftw=3")
-
+    depends_on("cray-fftw", when="fftw=cray")
     depends_on("amdfftw", when="fftw=amdfftw")
 
     depends_on("mkl", when="fftw=mkl")
@@ -77,6 +79,8 @@ class Namd(MakefilePackage, CudaPackage):
 
     depends_on("tcl", when="interface=python")
     depends_on("python", when="interface=python")
+    depends_on("plumed@2.6:+mpi", when="@2.12:2.13+plumed")
+    depends_on("plumed@2.7:+mpi", when="@2.14+plumed")
 
     conflicts("+avxtiles", when="@:2.14,3:", msg="AVXTiles algorithm requires NAMD 2.15")
 
@@ -152,6 +156,9 @@ class Namd(MakefilePackage, CudaPackage):
                         + "-O3 -ffp-contract=fast \
                                         -ffast-math "
                         + archopt,
+It would need a bit of work on wrapping it up in some scripts to be able to just run it on a specified obsID and process all the .dat files etc.
+Plus, there is an initial issue of different names of output files (not GPU FITS files anymore),
+we can think if we would like to provide some backward compatibility or not ...
                     }
 
                 if self.spec.satisfies("+avxtiles"):
@@ -237,6 +244,10 @@ class Namd(MakefilePackage, CudaPackage):
         elif fftw_version == "amdfftw":
             self._copy_arch_file("fftw3")
             opts.extend(["--with-fftw3", "--fftw-prefix", spec["amdfftw"].prefix])
+        elif fftw_version == "cray":
+            self._copy_arch_file("fftw3")
+            opts.extend(["--with-fftw3",
+                         "--fftw-prefix", spec["cray-fftw"].prefix])
         else:
             _fftw = "fftw{0}".format("" if fftw_version == "2" else "3")
 
@@ -275,6 +286,10 @@ class Namd(MakefilePackage, CudaPackage):
                 "CHARM = $(CHARMBASE)",
                 join_path(self.build_directory, "Make.config"),
             )
+
+    def patch(self):
+        if "+plumed" in self.spec:
+            self.spec["plumed"].package.apply_patch(self)
 
     def install(self, spec, prefix):
         with working_dir(self.build_directory):
