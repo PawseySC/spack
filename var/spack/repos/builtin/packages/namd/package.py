@@ -156,9 +156,6 @@ class Namd(MakefilePackage, CudaPackage):
                         + "-O3 -ffp-contract=fast \
                                         -ffast-math "
                         + archopt,
-It would need a bit of work on wrapping it up in some scripts to be able to just run it on a specified obsID and process all the .dat files etc.
-Plus, there is an initial issue of different names of output files (not GPU FITS files anymore),
-we can think if we would like to provide some backward compatibility or not ...
                     }
 
                 if self.spec.satisfies("+avxtiles"):
